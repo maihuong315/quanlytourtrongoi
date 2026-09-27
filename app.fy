@@ -1,218 +1,229 @@
 import streamlit as st
+import mysql.connector
+from mysql.connector import Error
 import pandas as pd
-import plotly.express as px
-import os
 from datetime import date
 
-# =========================
-# CẤU HÌNH TRANG
-# =========================
+# =========================================================
+# 1. CẤU HÌNH WEBSITE
+# =========================================================
 
 st.set_page_config(
-    page_title="Travel Tour Management",
+    page_title="Quản lý Tour Trọn Gói",
     page_icon="✈️",
     layout="wide"
 )
 
-# =========================
-# KHỞI TẠO DỮ LIỆU
-# =========================
+# =========================================================
+# 2. KẾT NỐI MYSQL AIVEN
+# =========================================================
 
-DATA_DIR = "data"
+def connect_mysql():
+    try:
+        connection = mysql.connector.connect(
+            host="mysql-19728385-npmaihuong-927f.b.aivencloud.com",
+            port=27942,
+            user="avnadmin",
+            password="AVNS_zBDlzsF9I5fC-EdWcl0",
+            database="defaultdb",
+            ssl_ca="CA_CERTIFICATE"
+        )
 
-os.makedirs(DATA_DIR, exist_ok=True)
+        return connection
 
-TOUR_FILE = f"{DATA_DIR}/tours.csv"
-CUSTOMER_FILE = f"{DATA_DIR}/customers.csv"
-BOOKING_FILE = f"{DATA_DIR}/bookings.csv"
-
-
-def load_data(file, columns):
-
-    if os.path.exists(file):
-        return pd.read_csv(file)
-
-    df = pd.DataFrame(columns=columns)
-    df.to_csv(file, index=False)
-
-    return df
+    except Error as e:
+        st.error(f"❌ Lỗi kết nối MySQL: {e}")
+        return None
 
 
-tours = load_data(
-    TOUR_FILE,
-    [
-        "tour_id",
-        "tour_name",
-        "destination",
-        "start_date",
-        "end_date",
-        "duration",
-        "price",
-        "max_people"
-    ]
-)
+# =========================================================
+# 3. HÀM ĐỌC DỮ LIỆU
+# =========================================================
 
-customers = load_data(
-    CUSTOMER_FILE,
-    [
-        "customer_id",
-        "name",
-        "phone",
-        "email"
-    ]
-)
+def read_data(sql, params=None):
 
-bookings = load_data(
-    BOOKING_FILE,
-    [
-        "booking_id",
-        "customer_id",
-        "tour_id",
-        "booking_date",
-        "people",
-        "total"
-    ]
-)
+    connection = connect_mysql()
+
+    if connection is None:
+        return pd.DataFrame()
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute(sql, params or ())
+
+        data = cursor.fetchall()
+
+        cursor.close()
+        connection.close()
+
+        return pd.DataFrame(data)
+
+    except Error as e:
+
+        st.error(f"Lỗi truy vấn: {e}")
+
+        if connection.is_connected():
+            connection.close()
+
+        return pd.DataFrame()
 
 
-# =========================
-# HÀM LƯU DỮ LIỆU
-# =========================
+# =========================================================
+# 4. HÀM THÊM / SỬA / XÓA DỮ LIỆU
+# =========================================================
 
-def save_data():
+def execute_query(sql, params=None):
 
-    tours.to_csv(TOUR_FILE, index=False)
-    customers.to_csv(CUSTOMER_FILE, index=False)
-    bookings.to_csv(BOOKING_FILE, index=False)
+    connection = connect_mysql()
+
+    if connection is None:
+        return False
+
+    try:
+
+        cursor = connection.cursor()
+
+        cursor.execute(sql, params or ())
+
+        connection.commit()
+
+        cursor.close()
+        connection.close()
+
+        return True
+
+    except Error as e:
+
+        st.error(f"Lỗi database: {e}")
+
+        if connection.is_connected():
+            connection.rollback()
+            connection.close()
+
+        return False
 
 
-# =========================
-# SIDEBAR
-# =========================
+# =========================================================
+# 5. SIDEBAR
+# =========================================================
 
-st.sidebar.title("✈️ TRAVEL TOUR")
-
-st.sidebar.caption("Hệ thống quản lý tour trọn gói")
+st.sidebar.title("✈️ QUẢN LÝ TOUR")
 
 menu = st.sidebar.radio(
     "MENU",
     [
-        "🏠 Dashboard",
-        "🗺️ Quản lý tour",
-        "👥 Khách hàng",
-        "📋 Booking",
-        "💰 Hóa đơn",
+        "🏠 Tổng quan",
+        "🚌 Quản lý Tour",
+        "👤 Khách hàng",
+        "📋 Đặt Tour",
+        "🧾 Hóa đơn",
         "📊 Báo cáo"
     ]
 )
 
 
-# =========================
-# DASHBOARD
-# =========================
+# =========================================================
+# 6. TRANG TỔNG QUAN
+# =========================================================
 
-if menu == "🏠 Dashboard":
+if menu == "🏠 Tổng quan":
 
-    st.title("🏠 Dashboard")
+    st.title("✈️ HỆ THỐNG QUẢN LÝ TOUR TRỌN GÓI")
 
     st.write(
-        "Tổng quan hoạt động kinh doanh tour"
+        "Hệ thống hỗ trợ doanh nghiệp lữ hành quản lý "
+        "tour, khách hàng, booking và hóa đơn."
     )
 
-    total_tours = len(tours)
-    total_customers = len(customers)
-    total_bookings = len(bookings)
+    # Lấy dữ liệu
 
-    if len(bookings) > 0:
-        revenue = bookings["total"].sum()
-    else:
-        revenue = 0
+    tours = read_data("SELECT * FROM tours")
+
+    customers = read_data("SELECT * FROM customers")
+
+    bookings = read_data("SELECT * FROM bookings")
+
+    invoices = read_data("SELECT * FROM invoices")
 
     col1, col2, col3, col4 = st.columns(4)
 
-    col1.metric(
-        "🗺️ Tổng số tour",
-        total_tours
-    )
+    with col1:
 
-    col2.metric(
-        "👥 Khách hàng",
-        total_customers
-    )
+        st.metric(
+            "🚌 Tổng số tour",
+            len(tours)
+        )
 
-    col3.metric(
-        "📋 Booking",
-        total_bookings
-    )
+    with col2:
 
-    col4.metric(
-        "💰 Doanh thu",
-        f"{revenue:,.0f} VNĐ"
-    )
+        st.metric(
+            "👤 Khách hàng",
+            len(customers)
+        )
+
+    with col3:
+
+        st.metric(
+            "📋 Booking",
+            len(bookings)
+        )
+
+    with col4:
+
+        if not invoices.empty and "total_amount" in invoices.columns:
+
+            revenue = invoices["total_amount"].sum()
+
+        else:
+
+            revenue = 0
+
+        st.metric(
+            "💰 Doanh thu",
+            f"{revenue:,.0f} VNĐ"
+        )
 
     st.divider()
 
-    st.subheader("📋 Booking gần đây")
+    st.subheader("📋 Danh sách tour")
 
-    if len(bookings) > 0:
+    if not tours.empty:
 
         st.dataframe(
-            bookings.tail(10),
+            tours,
             use_container_width=True
         )
 
     else:
 
-        st.info(
-            "Chưa có booking nào."
-        )
+        st.info("Chưa có dữ liệu tour.")
 
 
-# =========================
-# QUẢN LÝ TOUR
-# =========================
+# =========================================================
+# 7. QUẢN LÝ TOUR
+# =========================================================
 
-elif menu == "🗺️ Quản lý tour":
+elif menu == "🚌 Quản lý Tour":
 
-    st.title("🗺️ Quản lý tour")
+    st.title("🚌 QUẢN LÝ TOUR TRỌN GÓI")
 
     tab1, tab2 = st.tabs(
         [
-            "📋 Danh sách tour",
-            "➕ Tạo tour"
+            "➕ Thêm Tour",
+            "📋 Danh sách Tour"
         ]
     )
 
-    # -------------------------
-    # DANH SÁCH TOUR
-    # -------------------------
+    # -----------------------------------------------------
+    # THÊM TOUR
+    # -----------------------------------------------------
 
     with tab1:
 
-        if len(tours) > 0:
+        st.subheader("Thêm tour mới")
 
-            st.dataframe(
-                tours,
-                use_container_width=True
-            )
-
-        else:
-
-            st.info(
-                "Chưa có tour nào."
-            )
-
-    # -------------------------
-    # TẠO TOUR
-    # -------------------------
-
-    with tab2:
-
-        st.subheader(
-            "➕ Tạo tour mới"
-        )
-
-        with st.form("tour_form"):
+        with st.form("add_tour"):
 
             tour_name = st.text_input(
                 "Tên tour"
@@ -222,124 +233,137 @@ elif menu == "🗺️ Quản lý tour":
                 "Điểm đến"
             )
 
-            col1, col2 = st.columns(2)
+            start_date = st.date_input(
+                "Ngày khởi hành",
+                date.today()
+            )
 
-            with col1:
-
-                start_date = st.date_input(
-                    "Ngày khởi hành"
-                )
-
-            with col2:
-
-                end_date = st.date_input(
-                    "Ngày kết thúc"
-                )
+            end_date = st.date_input(
+                "Ngày kết thúc",
+                date.today()
+            )
 
             duration = st.number_input(
                 "Số ngày",
                 min_value=1,
-                value=3
+                value=1
             )
 
-            col3, col4 = st.columns(2)
+            price = st.number_input(
+                "Giá tour / khách (VNĐ)",
+                min_value=0,
+                step=100000
+            )
 
-            with col3:
+            max_people = st.number_input(
+                "Số khách tối đa",
+                min_value=1,
+                value=20
+            )
 
-                price = st.number_input(
-                    "Giá tour / khách",
-                    min_value=0,
-                    step=100000
-                )
-
-            with col4:
-
-                max_people = st.number_input(
-                    "Số khách tối đa",
-                    min_value=1,
-                    value=40
-                )
+            description = st.text_area(
+                "Mô tả tour"
+            )
 
             submit = st.form_submit_button(
-                "💾 Lưu tour"
+                "💾 Lưu Tour"
             )
 
             if submit:
 
                 if tour_name == "" or destination == "":
 
-                    st.error(
-                        "Vui lòng nhập đầy đủ thông tin."
+                    st.warning(
+                        "Vui lòng nhập tên tour và điểm đến."
                     )
 
                 else:
 
-                    new_id = (
-                        f"T{len(tours) + 1:03d}"
+                    sql = """
+                    INSERT INTO tours
+                    (
+                        tour_name,
+                        destination,
+                        start_date,
+                        end_date,
+                        duration,
+                        price,
+                        max_people,
+                        description
+                    )
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                    """
+
+                    success = execute_query(
+                        sql,
+                        (
+                            tour_name,
+                            destination,
+                            start_date,
+                            end_date,
+                            duration,
+                            price,
+                            max_people,
+                            description
+                        )
                     )
 
-                    new_tour = pd.DataFrame(
-                        [{
-                            "tour_id": new_id,
-                            "tour_name": tour_name,
-                            "destination": destination,
-                            "start_date": start_date,
-                            "end_date": end_date,
-                            "duration": duration,
-                            "price": price,
-                            "max_people": max_people
-                        }]
-                    )
+                    if success:
 
-                    tours = pd.concat(
-                        [tours, new_tour],
-                        ignore_index=True
-                    )
-
-                    save_data()
-
-                    st.success(
-                        f"Đã tạo tour {new_id}!"
-                    )
-
-                    st.rerun()
+                        st.success(
+                            "✅ Thêm tour thành công!"
+                        )
 
 
-# =========================
-# KHÁCH HÀNG
-# =========================
+    # -----------------------------------------------------
+    # DANH SÁCH TOUR
+    # -----------------------------------------------------
 
-elif menu == "👥 Khách hàng":
+    with tab2:
 
-    st.title("👥 Quản lý khách hàng")
+        tours = read_data(
+            "SELECT * FROM tours ORDER BY tour_id DESC"
+        )
 
-    tab1, tab2 = st.tabs(
-        [
-            "📋 Danh sách",
-            "➕ Thêm khách"
-        ]
-    )
-
-    with tab1:
-
-        if len(customers) > 0:
+        if not tours.empty:
 
             st.dataframe(
-                customers,
-                use_container_width=True
+                tours,
+                use_container_width=True,
+                hide_index=True
             )
 
         else:
 
             st.info(
-                "Chưa có khách hàng."
+                "Chưa có tour nào."
             )
 
-    with tab2:
 
-        with st.form("customer_form"):
+# =========================================================
+# 8. KHÁCH HÀNG
+# =========================================================
 
-            name = st.text_input(
+elif menu == "👤 Khách hàng":
+
+    st.title("👤 QUẢN LÝ KHÁCH HÀNG")
+
+    tab1, tab2 = st.tabs(
+        [
+            "➕ Thêm khách hàng",
+            "📋 Danh sách khách hàng"
+        ]
+    )
+
+    # -----------------------------------------------------
+    # THÊM KHÁCH
+    # -----------------------------------------------------
+
+    with tab1:
+
+        with st.form("add_customer"):
+
+            full_name = st.text_input(
                 "Họ và tên"
             )
 
@@ -351,322 +375,440 @@ elif menu == "👥 Khách hàng":
                 "Email"
             )
 
+            address = st.text_input(
+                "Địa chỉ"
+            )
+
             submit = st.form_submit_button(
                 "💾 Lưu khách hàng"
             )
 
             if submit:
 
-                if name == "" or phone == "":
+                if full_name == "":
 
-                    st.error(
-                        "Vui lòng nhập họ tên và số điện thoại."
+                    st.warning(
+                        "Vui lòng nhập họ tên."
                     )
 
                 else:
 
-                    new_id = (
-                        f"C{len(customers) + 1:03d}"
+                    sql = """
+                    INSERT INTO customers
+                    (
+                        full_name,
+                        phone,
+                        email,
+                        address
+                    )
+                    VALUES (%s,%s,%s,%s)
+                    """
+
+                    success = execute_query(
+                        sql,
+                        (
+                            full_name,
+                            phone,
+                            email,
+                            address
+                        )
                     )
 
-                    new_customer = pd.DataFrame(
-                        [{
-                            "customer_id": new_id,
-                            "name": name,
-                            "phone": phone,
-                            "email": email
-                        }]
-                    )
+                    if success:
 
-                    customers = pd.concat(
-                        [
-                            customers,
-                            new_customer
-                        ],
-                        ignore_index=True
-                    )
-
-                    save_data()
-
-                    st.success(
-                        "Đã thêm khách hàng!"
-                    )
-
-                    st.rerun()
+                        st.success(
+                            "✅ Thêm khách hàng thành công!"
+                        )
 
 
-# =========================
-# BOOKING
-# =========================
+    # -----------------------------------------------------
+    # DANH SÁCH
+    # -----------------------------------------------------
 
-elif menu == "📋 Booking":
+    with tab2:
 
-    st.title("📋 Quản lý Booking")
-
-    if len(tours) == 0:
-
-        st.warning(
-            "Bạn cần tạo tour trước."
+        customers = read_data(
+            """
+            SELECT *
+            FROM customers
+            ORDER BY customer_id DESC
+            """
         )
 
-    elif len(customers) == 0:
+        if not customers.empty:
 
-        st.warning(
-            "Bạn cần tạo khách hàng trước."
-        )
-
-    else:
-
-        with st.form("booking_form"):
-
-            customer_options = dict(
-                zip(
-                    customers["customer_id"],
-                    customers["name"]
-                )
+            st.dataframe(
+                customers,
+                use_container_width=True,
+                hide_index=True
             )
 
-            tour_options = dict(
-                zip(
-                    tours["tour_id"],
-                    tours["tour_name"]
-                )
+        else:
+
+            st.info(
+                "Chưa có khách hàng."
             )
 
-            customer_id = st.selectbox(
-                "Khách hàng",
-                options=list(
-                    customer_options.keys()
-                ),
-                format_func=lambda x:
-                f"{x} - {customer_options[x]}"
-            )
 
-            tour_id = st.selectbox(
-                "Tour",
-                options=list(
-                    tour_options.keys()
-                ),
-                format_func=lambda x:
-                f"{x} - {tour_options[x]}"
-            )
+# =========================================================
+# 9. ĐẶT TOUR
+# =========================================================
 
-            people = st.number_input(
-                "Số người",
-                min_value=1,
-                value=1
-            )
+elif menu == "📋 Đặt Tour":
 
-            submit = st.form_submit_button(
-                "📋 Tạo Booking"
-            )
+    st.title("📋 ĐẶT TOUR")
 
-            if submit:
-
-                tour = tours[
-                    tours["tour_id"] == tour_id
-                ].iloc[0]
-
-                price = float(
-                    tour["price"]
-                )
-
-                total = price * people
-
-                booking_id = (
-                    f"B{len(bookings) + 1:03d}"
-                )
-
-                new_booking = pd.DataFrame(
-                    [{
-                        "booking_id": booking_id,
-                        "customer_id": customer_id,
-                        "tour_id": tour_id,
-                        "booking_date": date.today(),
-                        "people": people,
-                        "total": total
-                    }]
-                )
-
-                bookings = pd.concat(
-                    [
-                        bookings,
-                        new_booking
-                    ],
-                    ignore_index=True
-                )
-
-                save_data()
-
-                st.success(
-                    f"Đã tạo Booking {booking_id}"
-                )
-
-                st.rerun()
-
-    st.divider()
-
-    st.subheader(
-        "📋 Danh sách Booking"
+    customers = read_data(
+        """
+        SELECT customer_id, full_name
+        FROM customers
+        ORDER BY full_name
+        """
     )
 
-    if len(bookings) > 0:
+    tours = read_data(
+        """
+        SELECT
+            tour_id,
+            tour_name,
+            destination,
+            price,
+            max_people
+        FROM tours
+        ORDER BY tour_name
+        """
+    )
 
-        st.dataframe(
-            bookings,
-            use_container_width=True
+    if customers.empty:
+
+        st.warning(
+            "⚠️ Chưa có khách hàng. "
+            "Hãy thêm khách hàng trước."
         )
 
+    elif tours.empty:
 
-# =========================
-# HÓA ĐƠN
-# =========================
-
-elif menu == "💰 Hóa đơn":
-
-    st.title("💰 Hóa đơn")
-
-    if len(bookings) == 0:
-
-        st.info(
-            "Chưa có booking."
+        st.warning(
+            "⚠️ Chưa có tour. "
+            "Hãy thêm tour trước."
         )
 
     else:
 
-        booking_id = st.selectbox(
-            "Chọn Booking",
-            bookings["booking_id"]
+        customer_list = customers[
+            "customer_id"
+        ].tolist()
+
+        customer_name_list = customers[
+            "full_name"
+        ].tolist()
+
+        selected_customer_name = st.selectbox(
+            "👤 Chọn khách hàng",
+            customer_name_list
         )
 
-        booking = bookings[
-            bookings["booking_id"] == booking_id
+        selected_customer_id = customers[
+            customers["full_name"]
+            == selected_customer_name
+        ]["customer_id"].iloc[0]
+
+
+        tour_name_list = tours[
+            "tour_name"
+        ].tolist()
+
+        selected_tour_name = st.selectbox(
+            "🚌 Chọn tour",
+            tour_name_list
+        )
+
+        selected_tour = tours[
+            tours["tour_name"]
+            == selected_tour_name
         ].iloc[0]
 
-        customer_id = booking["customer_id"]
-        tour_id = booking["tour_id"]
 
-        customer = customers[
-            customers["customer_id"] == customer_id
-        ]
-
-        tour = tours[
-            tours["tour_id"] == tour_id
-        ]
-
-        customer_name = (
-            customer.iloc[0]["name"]
-            if len(customer) > 0
-            else "Không xác định"
+        price = float(
+            selected_tour["price"]
         )
 
-        tour_name = (
-            tour.iloc[0]["tour_name"]
-            if len(tour) > 0
-            else "Không xác định"
+        max_people = int(
+            selected_tour["max_people"]
         )
 
-        st.subheader(
-            "🧾 HÓA ĐƠN DỊCH VỤ DU LỊCH"
+        st.info(
+            f"💰 Giá tour: {price:,.0f} VNĐ/người"
         )
 
-        col1, col2 = st.columns(2)
+        people = st.number_input(
+            "Số lượng khách",
+            min_value=1,
+            max_value=max_people,
+            value=1
+        )
 
-        with col1:
+        total_amount = price * people
 
-            st.write(
-                f"**Mã Booking:** {booking_id}"
+        st.metric(
+            "💰 Tổng tiền",
+            f"{total_amount:,.0f} VNĐ"
+        )
+
+        booking_date = st.date_input(
+            "Ngày đặt tour",
+            date.today()
+        )
+
+        if st.button(
+            "✅ Xác nhận đặt tour"
+        ):
+
+            # Kiểm tra số khách đã đặt
+
+            check_sql = """
+            SELECT COALESCE(SUM(people),0)
+            AS booked_people
+            FROM bookings
+            WHERE tour_id = %s
+            """
+
+            booked = read_data(
+                check_sql,
+                (int(selected_tour["tour_id"]),)
             )
 
-            st.write(
-                f"**Khách hàng:** {customer_name}"
+            booked_people = int(
+                booked.iloc[0]["booked_people"]
             )
 
-        with col2:
+            remaining = max_people - booked_people
 
-            st.write(
-                f"**Tour:** {tour_name}"
-            )
+            if people > remaining:
 
-            st.write(
-                f"**Số khách:** {booking['people']}"
-            )
+                st.error(
+                    f"❌ Tour chỉ còn {remaining} chỗ."
+                )
+
+            else:
+
+                booking_sql = """
+                INSERT INTO bookings
+                (
+                    customer_id,
+                    tour_id,
+                    booking_date,
+                    people,
+                    total_amount
+                )
+                VALUES (%s,%s,%s,%s,%s)
+                """
+
+                success = execute_query(
+                    booking_sql,
+                    (
+                        int(selected_customer_id),
+                        int(selected_tour["tour_id"]),
+                        booking_date,
+                        people,
+                        total_amount
+                    )
+                )
+
+                if success:
+
+                    # Lấy booking ID mới nhất
+
+                    latest_booking = read_data(
+                        """
+                        SELECT booking_id
+                        FROM bookings
+                        ORDER BY booking_id DESC
+                        LIMIT 1
+                        """
+                    )
+
+                    booking_id = int(
+                        latest_booking.iloc[0]["booking_id"]
+                    )
+
+                    # Tạo hóa đơn
+
+                    invoice_sql = """
+                    INSERT INTO invoices
+                    (
+                        booking_id,
+                        invoice_date,
+                        total_amount,
+                        payment_status
+                    )
+                    VALUES (%s,%s,%s,%s)
+                    """
+
+                    execute_query(
+                        invoice_sql,
+                        (
+                            booking_id,
+                            booking_date,
+                            total_amount,
+                            "Chưa thanh toán"
+                        )
+                    )
+
+                    st.success(
+                        "🎉 Đặt tour thành công!"
+                    )
+
+                    st.balloons()
+
+
+# =========================================================
+# 10. HÓA ĐƠN
+# =========================================================
+
+elif menu == "🧾 Hóa đơn":
+
+    st.title("🧾 QUẢN LÝ HÓA ĐƠN")
+
+    invoices = read_data(
+        """
+        SELECT
+            i.invoice_id,
+            i.booking_id,
+            i.invoice_date,
+            i.total_amount,
+            i.payment_status,
+            c.full_name,
+            t.tour_name
+        FROM invoices i
+        JOIN bookings b
+            ON i.booking_id = b.booking_id
+        JOIN customers c
+            ON b.customer_id = c.customer_id
+        JOIN tours t
+            ON b.tour_id = t.tour_id
+        ORDER BY i.invoice_id DESC
+        """
+    )
+
+    if not invoices.empty:
+
+        st.dataframe(
+            invoices,
+            use_container_width=True,
+            hide_index=True
+        )
 
         st.divider()
 
-        st.write(
-            f"**Tổng thanh toán:** "
-            f"{booking['total']:,.0f} VNĐ"
+        invoice_id = st.number_input(
+            "Nhập mã hóa đơn cần cập nhật",
+            min_value=1,
+            step=1
         )
 
-        st.success(
-            "Trạng thái: Chờ thanh toán"
+        status = st.selectbox(
+            "Trạng thái thanh toán",
+            [
+                "Chưa thanh toán",
+                "Đã đặt cọc",
+                "Đã thanh toán"
+            ]
+        )
+
+        if st.button(
+            "💾 Cập nhật thanh toán"
+        ):
+
+            success = execute_query(
+                """
+                UPDATE invoices
+                SET payment_status = %s
+                WHERE invoice_id = %s
+                """,
+                (
+                    status,
+                    invoice_id
+                )
+            )
+
+            if success:
+
+                st.success(
+                    "✅ Cập nhật thành công!"
+                )
+
+    else:
+
+        st.info(
+            "Chưa có hóa đơn."
         )
 
 
-# =========================
-# BÁO CÁO
-# =========================
+# =========================================================
+# 11. BÁO CÁO
+# =========================================================
 
 elif menu == "📊 Báo cáo":
 
-    st.title("📊 Báo cáo kinh doanh")
+    st.title("📊 BÁO CÁO DOANH THU")
 
-    if len(bookings) == 0:
+    report = read_data(
+        """
+        SELECT
+            t.tour_name,
+            COUNT(b.booking_id) AS total_bookings,
+            COALESCE(
+                SUM(b.people),0
+            ) AS total_customers,
+            COALESCE(
+                SUM(b.total_amount),0
+            ) AS revenue
+        FROM tours t
+        LEFT JOIN bookings b
+            ON t.tour_id = b.tour_id
+        GROUP BY
+            t.tour_id,
+            t.tour_name
+        ORDER BY revenue DESC
+        """
+    )
 
-        st.info(
-            "Chưa có dữ liệu để thống kê."
+    if not report.empty:
+
+        st.subheader(
+            "💰 Doanh thu theo tour"
+        )
+
+        st.dataframe(
+            report,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.subheader(
+            "📈 Biểu đồ doanh thu"
+        )
+
+        chart_data = report.set_index(
+            "tour_name"
+        )["revenue"]
+
+        st.bar_chart(
+            chart_data
+        )
+
+        total_revenue = report[
+            "revenue"
+        ].sum()
+
+        st.metric(
+            "💰 Tổng doanh thu",
+            f"{total_revenue:,.0f} VNĐ"
         )
 
     else:
 
-        report = bookings.copy()
-
-        report["total"] = pd.to_numeric(
-            report["total"]
-        )
-
-        revenue = report["total"].sum()
-
-        customers_count = report["people"].sum()
-
-        col1, col2 = st.columns(2)
-
-        col1.metric(
-            "💰 Tổng doanh thu",
-            f"{revenue:,.0f} VNĐ"
-        )
-
-        col2.metric(
-            "👥 Tổng lượt khách",
-            customers_count
-        )
-
-        st.divider()
-
-        revenue_by_tour = (
-            report
-            .groupby("tour_id")["total"]
-            .sum()
-            .reset_index()
-        )
-
-        revenue_by_tour = revenue_by_tour.merge(
-            tours[
-                ["tour_id", "tour_name"]
-            ],
-            on="tour_id",
-            how="left"
-        )
-
-        fig = px.bar(
-            revenue_by_tour,
-            x="tour_name",
-            y="total",
-            title="Doanh thu theo tour"
-        )
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True
+        st.info(
+            "Chưa có dữ liệu báo cáo."
         )
