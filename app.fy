@@ -1,3 +1,4 @@
+```python
 import pandas as pd
 import streamlit as st
 
@@ -21,28 +22,13 @@ st.set_page_config(
 # 2. KẾT NỐI AIVEN MYSQL
 # ============================================================
 
-def get_database_config():
-
-    try:
-        return {
-            "user": str(st.secrets["mysql"]["user"]).strip(),
-            "password": str(st.secrets["mysql"]["password"]).strip(),
-            "host": str(st.secrets["mysql"]["host"]).strip(),
-            "port": int(st.secrets["mysql"]["port"]),
-            "database": str(st.secrets["mysql"]["database"]).strip()
-        }
-
-    except Exception as e:
-        st.error("❌ Chưa cấu hình Streamlit Secrets cho MySQL.")
-        st.code(str(e))
-        st.info(
-            "Vào Streamlit Cloud → Settings → Secrets "
-            "và thêm thông tin Aiven MySQL."
-        )
-        st.stop()
-
-
-DB = get_database_config()
+DB = {
+    "user": "avnadmin",
+    "password": "AVNS_zBDlzsF9I5fC-EdWcl0",
+    "host": "mysql-19728385-npmaihuong-927f.b.aivencloud.com",
+    "port": 27942,
+    "database": "defaultdb"
+}
 
 
 # ============================================================
@@ -114,10 +100,17 @@ with st.expander("🔧 Kiểm tra kết nối MySQL"):
     st.write("**User:**", DB["user"])
 
     if db_connected:
-        st.success("🟢 MySQL đã kết nối thành công.")
+
+        st.success(
+            "🟢 MySQL đã kết nối thành công."
+        )
 
     else:
-        st.error("🔴 Không thể kết nối MySQL.")
+
+        st.error(
+            "🔴 Không thể kết nối MySQL."
+        )
+
         st.code(db_message)
 
 
@@ -128,6 +121,7 @@ with st.expander("🔧 Kiểm tra kết nối MySQL"):
 def init_db():
 
     engine = get_db_engine()
+
 
     create_tours = """
     CREATE TABLE IF NOT EXISTS tours (
@@ -212,9 +206,17 @@ def init_db():
 
     with engine.begin() as conn:
 
-        conn.exec_driver_sql(create_tours)
-        conn.exec_driver_sql(create_customers)
-        conn.exec_driver_sql(create_bookings)
+        conn.exec_driver_sql(
+            create_tours
+        )
+
+        conn.exec_driver_sql(
+            create_customers
+        )
+
+        conn.exec_driver_sql(
+            create_bookings
+        )
 
 
 if db_connected:
@@ -225,8 +227,12 @@ if db_connected:
 
     except Exception as e:
 
-        st.error("❌ Không thể tạo bảng Database.")
+        st.error(
+            "❌ Không thể tạo bảng Database."
+        )
+
         st.code(str(e))
+
         st.stop()
 
 else:
@@ -254,7 +260,10 @@ def read_query(sql, params=None):
 
     except Exception as e:
 
-        st.error("❌ Lỗi đọc dữ liệu.")
+        st.error(
+            "❌ Lỗi đọc dữ liệu."
+        )
+
         st.code(str(e))
 
         return pd.DataFrame()
@@ -281,7 +290,10 @@ def execute_query(sql, params=None):
 
     except Exception as e:
 
-        st.error("❌ Lỗi lưu dữ liệu.")
+        st.error(
+            "❌ Lỗi lưu dữ liệu."
+        )
+
         st.code(str(e))
 
         return False
@@ -341,7 +353,9 @@ if "admin_logged_in" not in st.session_state:
 # 12. SIDEBAR
 # ============================================================
 
-st.sidebar.title("✈️ QUẢN LÝ TOUR")
+st.sidebar.title(
+    "✈️ QUẢN LÝ TOUR"
+)
 
 st.sidebar.caption(
     "Hệ thống quản lý tour trọn gói"
@@ -366,13 +380,17 @@ page = st.sidebar.radio(
 
 if page == "🏠 Tổng quan":
 
-    st.title("✈️ HỆ THỐNG QUẢN LÝ TOUR TRỌN GÓI")
+    st.title(
+        "✈️ HỆ THỐNG QUẢN LÝ TOUR TRỌN GÓI"
+    )
 
     st.caption(
         "Quản lý tour - khách hàng - booking - thanh toán - doanh thu"
     )
 
-    st.success("🟢 MySQL: ĐÃ KẾT NỐI")
+    st.success(
+        "🟢 MySQL: ĐÃ KẾT NỐI"
+    )
 
     st.markdown("---")
 
@@ -390,7 +408,9 @@ if page == "🏠 Tổng quan":
     )
 
 
+    # --------------------------------------------------------
     # KPI
+    # --------------------------------------------------------
 
     col1, col2, col3, col4 = st.columns(4)
 
@@ -432,6 +452,7 @@ if page == "🏠 Tổng quan":
 
             revenue = 0
 
+
         st.metric(
             "💰 Doanh thu",
             f"{revenue:,.0f} VNĐ"
@@ -440,7 +461,9 @@ if page == "🏠 Tổng quan":
 
     st.markdown("---")
 
-    st.subheader("🚌 Các tour đang kinh doanh")
+    st.subheader(
+        "🚌 Các tour đang kinh doanh"
+    )
 
 
     if not df_tours.empty:
@@ -477,6 +500,7 @@ if page == "🏠 Tổng quan":
             hide_index=True
         )
 
+
     else:
 
         st.info(
@@ -491,7 +515,10 @@ if page == "🏠 Tổng quan":
 
 elif page == "🚌 Quản lý Tour":
 
-    st.title("🚌 QUẢN LÝ TOUR TRỌN GÓI")
+    st.title(
+        "🚌 QUẢN LÝ TOUR TRỌN GÓI"
+    )
+
 
     tab1, tab2 = st.tabs(
         [
@@ -507,7 +534,9 @@ elif page == "🚌 Quản lý Tour":
 
     with tab1:
 
-        st.subheader("➕ Tạo chương trình tour mới")
+        st.subheader(
+            "➕ Tạo chương trình tour mới"
+        )
 
 
         with st.form("create_tour_form"):
@@ -614,17 +643,24 @@ elif page == "🚌 Quản lý Tour":
 
                 if not tour_name.strip():
 
-                    st.warning("⚠️ Vui lòng nhập tên tour.")
+                    st.warning(
+                        "⚠️ Vui lòng nhập tên tour."
+                    )
+
 
                 elif not destination.strip():
 
-                    st.warning("⚠️ Vui lòng nhập điểm đến.")
+                    st.warning(
+                        "⚠️ Vui lòng nhập điểm đến."
+                    )
+
 
                 elif return_date < departure_date:
 
                     st.error(
                         "❌ Ngày kết thúc không được trước ngày khởi hành."
                     )
+
 
                 else:
 
@@ -697,7 +733,9 @@ elif page == "🚌 Quản lý Tour":
 
     with tab2:
 
-        st.subheader("📋 Danh sách tour")
+        st.subheader(
+            "📋 Danh sách tour"
+        )
 
 
         df = read_query(
@@ -750,9 +788,12 @@ elif page == "🚌 Quản lý Tour":
                 hide_index=True
             )
 
+
         else:
 
-            st.info("Chưa có tour.")
+            st.info(
+                "Chưa có tour."
+            )
 
 
 # ============================================================
@@ -761,7 +802,9 @@ elif page == "🚌 Quản lý Tour":
 
 elif page == "👤 Khách hàng":
 
-    st.title("👤 QUẢN LÝ KHÁCH HÀNG")
+    st.title(
+        "👤 QUẢN LÝ KHÁCH HÀNG"
+    )
 
 
     tab1, tab2 = st.tabs(
@@ -771,6 +814,10 @@ elif page == "👤 Khách hàng":
         ]
     )
 
+
+    # --------------------------------------------------------
+    # THÊM KHÁCH HÀNG
+    # --------------------------------------------------------
 
     with tab1:
 
@@ -810,11 +857,13 @@ elif page == "👤 Khách hàng":
                         "⚠️ Vui lòng nhập họ tên."
                     )
 
+
                 elif not phone.strip():
 
                     st.warning(
                         "⚠️ Vui lòng nhập số điện thoại."
                     )
+
 
                 else:
 
@@ -857,6 +906,10 @@ elif page == "👤 Khách hàng":
                         st.rerun()
 
 
+    # --------------------------------------------------------
+    # DANH SÁCH KHÁCH HÀNG
+    # --------------------------------------------------------
+
     with tab2:
 
         df_customers = read_query(
@@ -895,9 +948,12 @@ elif page == "👤 Khách hàng":
                 hide_index=True
             )
 
+
         else:
 
-            st.info("Chưa có khách hàng.")
+            st.info(
+                "Chưa có khách hàng."
+            )
 
 
 # ============================================================
@@ -906,7 +962,9 @@ elif page == "👤 Khách hàng":
 
 elif page == "📋 Đặt Tour":
 
-    st.title("📋 ĐẶT TOUR TRỌN GÓI")
+    st.title(
+        "📋 ĐẶT TOUR TRỌN GÓI"
+    )
 
 
     customers = read_query(
@@ -1041,7 +1099,9 @@ elif page == "📋 Đặt Tour":
 
         with col4:
 
-            tour_price = float(tour["price"])
+            tour_price = float(
+                tour["price"]
+            )
 
 
             st.info(
@@ -1053,7 +1113,9 @@ elif page == "📋 Đặt Tour":
         st.markdown("---")
 
 
+        # --------------------------------------------------------
         # KIỂM TRA SỐ CHỖ
+        # --------------------------------------------------------
 
         booked_df = read_query(
             """
@@ -1092,6 +1154,7 @@ elif page == "📋 Đặt Tour":
             st.error(
                 "❌ Tour đã đủ số lượng khách."
             )
+
 
         else:
 
@@ -1175,6 +1238,7 @@ elif page == "📋 Đặt Tour":
                         f"{total_price:,.0f} VNĐ"
                     )
 
+
                     st.balloons()
 
                     st.rerun()
@@ -1186,7 +1250,9 @@ elif page == "📋 Đặt Tour":
 
 elif page == "🧾 Hóa đơn":
 
-    st.title("🧾 QUẢN LÝ HÓA ĐƠN")
+    st.title(
+        "🧾 QUẢN LÝ HÓA ĐƠN"
+    )
 
 
     df_history = load_booking_history()
@@ -1197,6 +1263,7 @@ elif page == "🧾 Hóa đơn":
         st.info(
             "Hệ thống chưa có booking nào."
         )
+
 
     else:
 
@@ -1251,7 +1318,9 @@ elif page == "🧾 Hóa đơn":
         st.markdown("---")
 
 
-        st.subheader("📋 Danh sách booking")
+        st.subheader(
+            "📋 Danh sách booking"
+        )
 
 
         st.dataframe(
@@ -1269,7 +1338,9 @@ elif page == "🧾 Hóa đơn":
         )
 
 
-        booking_ids = df_history["ID"].tolist()
+        booking_ids = df_history[
+            "ID"
+        ].tolist()
 
 
         selected_booking = st.selectbox(
@@ -1323,7 +1394,9 @@ elif page == "🧾 Hóa đơn":
 
 elif page == "🔑 Admin":
 
-    st.title("🔑 TRANG QUẢN TRỊ")
+    st.title(
+        "🔑 TRANG QUẢN TRỊ"
+    )
 
 
     # --------------------------------------------------------
@@ -1358,6 +1431,7 @@ elif page == "🔑 Admin":
 
                     st.rerun()
 
+
                 else:
 
                     st.error(
@@ -1390,7 +1464,9 @@ elif page == "🔑 Admin":
 
     with col2:
 
-        if st.button("🔒 Đăng xuất"):
+        if st.button(
+            "🔒 Đăng xuất"
+        ):
 
             st.session_state.admin_logged_in = False
 
@@ -1466,9 +1542,12 @@ elif page == "🔑 Admin":
                 hide_index=True
             )
 
+
         else:
 
-            st.info("Chưa có tour.")
+            st.info(
+                "Chưa có tour."
+            )
 
 
     # ========================================================
@@ -1490,6 +1569,7 @@ elif page == "🔑 Admin":
             st.info(
                 "Chưa có booking."
             )
+
 
         else:
 
@@ -1606,6 +1686,7 @@ elif page == "🔑 Admin":
                 "Chưa có dữ liệu booking để phân tích."
             )
 
+
         else:
 
             df_anal["Tổng tiền"] = pd.to_numeric(
@@ -1719,12 +1800,16 @@ elif page == "🔑 Admin":
             )
 
 
-            tour_revenue_display = tour_revenue.copy()
+            tour_revenue_display = (
+                tour_revenue.copy()
+            )
 
 
             tour_revenue_display["Doanh thu"] = (
                 tour_revenue_display["Doanh thu"]
-                .apply(lambda x: f"{x:,.0f} VNĐ")
+                .apply(
+                    lambda x: f"{x:,.0f} VNĐ"
+                )
             )
 
 
@@ -1748,3 +1833,4 @@ st.sidebar.caption(
 st.sidebar.caption(
     "BVU - Quản trị dịch vụ du lịch và lữ hành"
 )
+```
